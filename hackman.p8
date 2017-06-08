@@ -5,12 +5,18 @@ frames = 0
 headbobble = 0
 player = {}
 
+function lerp(a,b,t)
+  return a + t*(b-a)
+end
+
 function init_players(i)
   for f = 1,i do
     add(player,{
       nr = f,
       x = 8*f,
       y = 8*f,
+      cx = 8*f,
+      cy = 8*f,
       dir = {1,0},
       predir = {0,1},
       tempo = 1,
@@ -31,6 +37,7 @@ function _update()
     control(p)
     collision(p)
     movement(p)
+    camera_smoothing(p)
   end
 end
 
@@ -54,17 +61,21 @@ function movement(p)
   p.y = p.y + p.dir[2] * p.tempo
 end
 
+function camera_smoothing(p)
+  p.cx = lerp(p.cx, p.x + p.dir[1] * 24, 0.05*p.tempo)
+  p.cy = lerp(p.cy, p.y + p.dir[2] * 24, 0.05*p.tempo)
+end
+
 function _draw()
   cls()
 
-
   for p in all(player) do
     if p.nr == 1 then
-      clip(0,0,64,64)
-      camera(p.x-28,p.y-28)
+      clip(0,0,80,64)
+      camera(p.cx-36,p.cy-28)
     elseif p.nr == 2 then
-      clip(64,0,64,64)
-      camera(p.x-94,p.y-28)
+      clip(48,64,80,64)
+      camera(p.cx,p.cy)
     end
 
     map()
@@ -73,6 +84,8 @@ function _draw()
       spr(19,p.x,p.y-4+p.headbobble)
     end
   end
+
+  print(stat(1))
 end
 
 __gfx__
