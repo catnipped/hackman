@@ -53,8 +53,19 @@ function collision(p)
   if p.dir[1] + p.dir[2] > 0 then edge = 8 end
   check_x = p.x + (p.dir[1] * edge)
   check_y = p.y + (p.dir[2] * edge)
-  if fget(mget(check_x/8,check_y/8)) == 1 then p.dir = {0,0} end
+  for i = 1,8 do
+    if fget(mget(check_x/8+p.dir[2] * i,check_y/8+ p.dir[1] *i)) == 1 then p.dir = {0,0} end
+  end
 end
+
+-- function inside(point, box)
+--   if point == nil then return false end
+--    local px = point.x
+--    local py = point.y
+--    return
+--       px > box.x and px < box.x + 8 and
+--       py > enemy.y and py < box.y + 8
+-- end
 
 function movement(p)
   p.x = p.x + p.dir[1] * p.tempo
@@ -68,14 +79,21 @@ end
 
 function _draw()
   cls()
+  camera(0,0)
+  rectfill(0,0,128,64,1)
+  rectfill(0,0,80,84,0)
+  rectfill(0,64,128,128,2)
+  rectfill(48,64,128,128,0)
 
   for p in all(player) do
     if p.nr == 1 then
       clip(0,0,80,64)
+
       camera(p.cx-36,p.cy-28)
     elseif p.nr == 2 then
       clip(48,64,80,64)
-      camera(p.cx,p.cy)
+
+      camera(p.cx-88,p.cy-96)
     end
 
     map()
@@ -84,8 +102,10 @@ function _draw()
       spr(19,p.x,p.y-4+p.headbobble)
     end
   end
-
-  print(stat(1))
+  --ui
+  clip()
+  camera(0,0)
+  print(stat(1),10,10,7)
 end
 
 __gfx__
