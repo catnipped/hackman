@@ -26,7 +26,8 @@ function init_players(i)
       str = 5,
       coin = 0,
       headbobble = 0,
-      dash = {false,10}
+      dash = {false,10},
+      ability = {o = {active = false, cooldown = 0}, x = {active = false, cooldown = 0} }
     })
   end
 end
@@ -114,6 +115,14 @@ function control(p)
     p.dash[2] = 30
     p.tempo = p.tempo/3
   end
+  local cooldown = p.ability.o.cooldown
+  if btnp(4,p.nr-1) then cooldown = 16
+  elseif cooldown >= 0 then cooldown -= 0.2 end
+  p.ability.o.cooldown = cooldown
+  local cooldown = p.ability.x.cooldown
+  if btnp(5,p.nr-1) then cooldown = 16
+  elseif cooldown >= 0 then cooldown -= 0.2 end
+  p.ability.x.cooldown = cooldown
 end
 
 function collision(p,dir)
@@ -245,12 +254,12 @@ function draw_ui()
 
   --ability bubbles
   circfill(x+38,y+8,7,0)
-  rectfill(x+32,y,x+31+14,y+8,3)
+  rectfill(x+32,y,x+31+14,y+player[1].ability.o.cooldown,3)
   spr(4,x+31,y,2,2)
   local y = 33
   --ability bubbles
   circfill(x+38,y+8,7,0)
-  rectfill(x+32,y,x+31+14,y+3,3)
+  rectfill(x+32,y,x+31+14,y+player[1].ability.x.cooldown,3)
   spr(4,x+31,y,2,2)
   --stat scroll
   local x = 94
@@ -274,7 +283,9 @@ function draw_ui()
   spr(32,112,120,2,1,true,true)
   spr(32,48,120,2,1,false,true)
   pal()
+  if player[1].ability.o.cooldown > 0 then color(5) else color(7) end
   print("\x8e",x-12,y+6)
+  if player[1].ability.x.cooldown > 0 then color(5) else color(7) end
   print("\x97",x-12,y+48)
   spr(52,x+5,y+9)
   print(player[1].hp,x+14,y+11,8)
@@ -290,12 +301,12 @@ function draw_ui()
 
   --ability bubbles
   circfill(x+38,y+8,7,0)
-  rectfill(x+31,y,x+31+14,y+8,13)
+  rectfill(x+31,y,x+31+14,y+player[2].ability.o.cooldown,13)
   spr(4,x+31,y,2,2)
   local y = 97
   --ability bubbles
   circfill(x+38,y+8,7,0)
-  rectfill(x+31,y,x+31+14,y+3,13)
+  rectfill(x+31,y,x+31+14,y+player[2].ability.x.cooldown,13)
   spr(4,x+31,y,2,2)
   --stat scroll
   local y = 67
@@ -311,16 +322,18 @@ function draw_ui()
   spr(35,x+8,y+50,1,1,false,true)
   spr(35,x+16,y+50,1,1,false,true)
   spr(36,x+24,y+50,1,1,false,true)
+  if player[2].ability.o.cooldown > 0 then color(5) else color(7) end
   print("\x8e",x+37,y+6)
+  if player[2].ability.x.cooldown > 0 then color(5) else color(7) end
   print("\x97",x+37,y+48)
   spr(52,x+5,y+9)
-  print(player[1].hp,x+14,y+11,8)
+  print(player[2].hp,x+14,y+11,8)
   spr(50,x+4,y+18)
-  print(player[1].str,x+14,y+20,6)
+  print(player[2].str,x+14,y+20,6)
   spr(51,x+4,y+28)
-  print(player[1].tempo,x+14,y+30,10)
+  print(player[2].tempo,x+14,y+30,10)
   spr(49,x+4,y+38)
-  print(player[1].coin,x+14,y+40,9)
+  print(player[2].coin,x+14,y+40,9)
   pset(0,0,0)
   pset(127,0,0)
   pset(0,127,0)
