@@ -109,6 +109,7 @@ end
 
 function _draw()
   cls()
+  palt()
   camera(0,0)
   rectfill(0,0,128,64,3)
   rectfill(0,0,79,83,0)
@@ -130,12 +131,17 @@ function _draw()
     for p in all(player) do
       spr(3,p.x,p.y)
       spr(19,p.x,p.y-4+p.headbobble)
-      for l in all(debug) do
-        pset(l.x,l.y,14)
-      end
+      -- for l in all(debug) do
+      --   pset(l.x,l.y,14)
+      -- end
     end
   end
-  --ui
+  draw_ui()
+  print(stat(1),10,10,7)
+  debug = {}
+end
+
+function draw_ui()
   clip()
   camera(0,0)
   pal(7,3)
@@ -145,21 +151,72 @@ function _draw()
   spr(32,0,56,2,1,false,true)
   pal()
 
-  --ability bubbles
-  circfill(87,18,7,0)
-  rectfill(80,10,95,18,3)
-  spr(4,79,10,2,2)
-  circfill(87,38,7,0)
-  spr(4,79,30,2,2)
+  local x = 48
+  local y = 16
 
+  --ability bubbles
+  circfill(x+38,y+8,7,0)
+  rectfill(x+32,y,x+31+14,y+8,3)
+  spr(4,x+31,y,2,2)
+  local y = 33
+  --ability bubbles
+  circfill(x+38,y+8,7,0)
+  rectfill(x+32,y,x+31+14,y+3,3)
+  spr(4,x+31,y,2,2)
+  --stat scroll
+  local x = 94
+  local y = 3
+  palt(0,false)
+  palt(15,true)
+  rectfill(x+2,y+7,x+31,y+50,0)
+  rect(x+2,y+7,x+31,y+50,7)
+  spr(36,x,y,1,1,true)
+  spr(35,x+8,y)
+  spr(35,x+16,y)
+  spr(34,x+24,y,1,1,true)
+  spr(36,x,y+50,1,1,true,true)
+  spr(35,x+8,y+50,1,1,false,true)
+  spr(35,x+16,y+50,1,1,false,true)
+  spr(34,x+24,y+50,1,1,true,true)
+  palt()
   pal(7,13)
   spr(32,48,64,2,1)
   spr(32,112,64,2,1,true)
   spr(32,112,120,2,1,true,true)
   spr(32,48,120,2,1,false,true)
   pal()
-  print(stat(1),10,10,7)
-  debug = {}
+  print("\x8e",x-12,y+6)
+  print("\x97",x-12,y+48)
+
+  local x = 2
+  local y = 80
+
+  --ability bubbles
+  circfill(x+38,y+8,7,0)
+  rectfill(x+31,y,x+31+14,y+8,13)
+  spr(4,x+31,y,2,2)
+  local y = 97
+  --ability bubbles
+  circfill(x+38,y+8,7,0)
+  rectfill(x+31,y,x+31+14,y+3,13)
+  spr(4,x+31,y,2,2)
+  --stat scroll
+  local y = 67
+  palt(0,false)
+  palt(15,true)
+  rectfill(x,y+7,x+29,y+50,0)
+  rect(x,y+7,x+29,y+50,7)
+  spr(34,x,y)
+  spr(35,x+8,y)
+  spr(35,x+16,y)
+  spr(36,x+24,y)
+  spr(34,x,y+50,1,1,false,true)
+  spr(35,x+8,y+50,1,1,false,true)
+  spr(35,x+16,y+50,1,1,false,true)
+  spr(36,x+24,y+50,1,1,false,true)
+  print("\x8e",x+37,y+6)
+  print("\x97",x+37,y+48)
+
 end
 
 __gfx__
