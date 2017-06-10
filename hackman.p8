@@ -77,6 +77,7 @@ end
 
 function _update()
   frames += 1
+  if frames > 32000 then frames = 0 end
   for p in all(player) do
     p.headbobble = sin((frames/p.tempo)*0.07)
     control(p)
@@ -206,14 +207,17 @@ function _draw()
   for p in all(player) do
     if p.nr == 1 then
       clip(0,0,80,64)
-
-      camera(p.cx-36,p.cy-28)
+      local shake = {0,0}
+      if p.tempo < 0.5 then shake = {rnd(3),rnd(2)} end
+      camera(p.cx-36+shake[1],p.cy-28+shake[2])
     elseif p.nr == 2 then
       clip(48,64,80,64)
 
       camera(p.cx-88,p.cy-96)
     end
-
+    -- pal(5,14)
+    -- pal(4,2)
+    -- pal(9,4)
     map()
     for d in all(door) do
       palt(0,false)
@@ -227,9 +231,9 @@ function _draw()
     draw_players()
   end
   draw_ui()
-  -- print(stat(1),10,10,7)
+  -- print(stat(0),10,10,7)
   -- print(player[1].dash[2],10,17,8)
-  -- debug = {}
+  debug = {}
   -- draw_logo()
 end
 
@@ -283,8 +287,9 @@ function draw_players()
     pal()
     palt(0,false)
     palt(6,true)
-
-    spr(10+p.nr,p.x,p.y-6+p.headbobble)
+    local mirror = false
+    if p.dir[1] + p.dir[2] < 0 then mirror = true end
+    spr(10+p.nr,p.x+p.dir[1],p.y-6+p.headbobble,1,1,mirror)
     -- for l in all(debug) do
     --   pset(l.x,l.y,14)
     -- end
@@ -438,6 +443,9 @@ function draw_ui()
   spr(31,x+12,y)
   -- spr(46,x+24,y)
   spr(47,x+36,y)
+
+  -- line(4,7,7,5,7)
+  -- line(48+4,64+7,48+7,64+5,7)
 end
 
 __gfx__
