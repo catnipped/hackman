@@ -2,9 +2,9 @@ pico-8 cartridge // http://www.pico-8.com
 version 8
 __lua__
 frames = 0
-headbobble = 0
 player = {}
 enemy = {}
+walls = {{0,0} , {0,8} }
 door = {}
 coins = {}
 chests = {}
@@ -29,12 +29,12 @@ function init_players(i)
     add(player,{
       nr = f,
       clr = color,
-      x = 16*f,
-      y = 16*f,
+      x = 18,
+      y = 18,
       cx = 8*f,
       cy = 8*f,
-      dir = {1,0},
-      targetdir = {0,1},
+      dir = {-1,0},
+      targetdir = {0,0},
       tempo = 1,
       hp = 2,
       str = 5,
@@ -83,6 +83,7 @@ function init_map(w,h)
     for y = 0,h-1 do
       if mget(x,y) == 18 then add(coins,{x*8,y*8}) mset(x,y,2) end
       if mget(x,y) == 3 then add(chests,{x*8,y*8}) mset(x,y,2) end
+      if fget(mget(x,y)) == 1 then add(walls,{x*8,y*8}) end
     end
   end
 end
@@ -93,19 +94,15 @@ function _update()
   for p in all(player) do
     p.headbobble = sin((frames/p.tempo)*0.07)
     control(p)
-    if collision(p,p.targetdir) == false then p.dir = p.targetdir else p.tempo = 1 end
-    if collision(p,p.dir) then p.dir = {0,0} p.tempo = 0 end
-
     movement(p)
+    if collision(p,walls,p.targetdir) == false then p.dir = p.targetdir end
+    -- if collision(p,walls) then p.dir = {0,0} p.tempo = 0 end
+
+
     camera_smoothing(p)
     p.tempo = lerp(p.tempo,1,0.1)
   end
-  if player_collision(player[1],player[2],player[1].dir) then
-    player[1].tempo = -1
-  end
-  if player_collision(player[2],player[1],player[2].dir) then
-    player[2].tempo = -1
-  end
+
   for e in all(enemy) do
     e.headbobble = sin((frames/e.tempo)*0.03)
   end
@@ -158,43 +155,41 @@ function control(p)
   p.ability.x.cooldown = cooldown
 end
 
-function collision(p,dir)
-  local edge = 1
-  if dir[1] + dir[2] > 0 then edge = 8 end
-  check_x = flr(p.x + (dir[1] * edge))
-  check_y = flr(p.y + (dir[2] * edge))
-  if dir[1] ~= 0 then for i = 0,7 do
-    if fget(mget((check_x)/8,(check_y+i)/8)) == 1 then return true end
-    add(debug,{x = check_x,y = check_y+i})
-  end end
-  if dir[2] ~= 0 then for i = 0,7 do
-    if fget(mget((check_x+i)/8,(check_y)/8)) == 1 then return true end
-    add(debug,{x = check_x+i,y = check_y})
-  end end
+function collision(p,list,check)
+  check = check or {0,0}
+  local x = p.x + check[1]
+  local y = p.y + check[2]
+  local points = { {x,y} , {x+7,y} , {x,y+7} , {x+7,y+7} }
+
+  for i in all(points) do
+    -- add(debug,i)
+    for l in all(list) do
+      if inside(i,l) then collisions_pushback(p,l) return true  end
+    end
+  end
   return false
 end
 
-function player_collision(pa,pb,dir)
-  local edge = 1
-  if dir[1] + dir[2] > 0 then edge = 8 end
-  check_x = pa.x + (dir[1] * edge)
-  check_y = pa.y + (dir[2] * edge)
-  if dir[1] ~= 0 then for i = 0,7 do
-    if inside({x = check_x,y = check_y+i},pb) then return true end
-  end end
-  if dir[2] ~= 0 then for i = 0,7 do
-    if inside({x = check_x+i,y = check_y},pb) then return true end
-  end end
-  return false
+function collisions_pushback(p,wall)
+  if collision(p,{wall}) then --ÄNDRA TILL HISTORIK
+    printh(stat(0))
+    if p.dir[1] ~= 0 then p.x = p.dir[1] end
+    if p.dir[2] ~= 0 then p.y = p.dir[2] end
+  end
+  p.dir = {0,0}
 end
+
 
 function inside(point, box)
+  -- printh(point[1] .. " " .. point[2] .. " " .. box[1] .. " " .. box[2])
   if point == nil then return false end
-   local px = point.x
-   local py = point.y
+   local px = point[1]
+   local py = point[2]
+  --  local points = { {box[1],box[2]} , {box[1]+7,box[2]} , {box[1],box[2]+7} , {box[1]+7,box[2]+7} }
+  --  for i in all(points) do add(debug,i) end
    return
-      px > box.x and px < box.x + 8 and
-      py > box.y and py < box.y + 8
+      px >= box[1] and px < box[1] + 8 and
+      py >= box[2] and py < box[2] + 8
 end
 
 function movement(p)
@@ -257,7 +252,7 @@ function _draw()
     draw_players()
   end
   draw_ui()
-  -- print(stat(0),10,10,7)
+  print(flr(stat(1)*100) .. " " .. stat(0),10,10,7)
   -- print(player[1].dash[2],10,17,8)
   debug = {}
   -- draw_logo()
@@ -316,9 +311,9 @@ function draw_players()
     local mirror = false
     if p.dir[1] + p.dir[2] < 0 then mirror = true end
     spr(10+p.nr,p.x+p.dir[1],p.y-6+p.headbobble,1,1,mirror)
-    -- for l in all(debug) do
-    --   pset(l.x,l.y,14)
-    -- end
+    for l in all(debug) do
+      pset(l[1],l[2],14)
+    end
     palt()
     if p.dash[1] == false and p.dash[2] > 0 and p.dash[2] < 5 then
       circfill(p.x+4,p.y+4,p.dash[2]*2,7)
@@ -500,13 +495,13 @@ __gfx__
 70000000000000007007000000000000000000770000000000dddd00000000000000000000000000000000000000000094a999495000004900094000000d5000
 700000000000000070007777777777777777777f0000000000050000000000000000000000000000000000000000000094999949500000490000000000000000
 05555550000000000000000000000000000000000009400000900000777777770077770000000000000a0a00000000c094999949500000490000000000000000
-00776000009990000000006000000a00000000000066550000540000711111160777776007765500090808900000037394999949500000490000000000000000
-55776555094a9a00000006700000a9000880880000b33b0008804060717117160727726007765500a82002000000c77c00999949500000490000000000000000
-00777600094a9a0000006700000a90008e88882000b39b00007777767177771607877860077765500000008a000c7730aa999949500000490000000000000000
-55776555094a9a0000d6700000aaaa00888888200b3a33b008804060711771160777776007765500a800000000d37c0094999949500000490000000000000000
-00070000094a9a00000d00000009a000088882000b33a3b0005040007111111600757500007050000020028a000d300094999949500000490000000000000000
-57777765094a9a000050d000009a0000008820000b3933b0005400000661166000d6d60077776550098080900050d00094999949511111490000000000000000
-07777760009990000500000000a000000008000000b33b000090000000066000007776007777655000a0a0000500000044444444111111140000000000000000
+00667000009990000000006000000a00000000000066550000540000711111160777776007765500090808900000037394999949500000490000000000000000
+55667555094a9a00000006700000a9000880880000b33b0008804060717117160727726007765500a82002000000c77c00999949500000490000000000000000
+00666700094a9a0000006700000a90008e88882000b39b00007777767177771607877860077765500000008a000c7730aa999949500000490000000000000000
+55667555094a9a0000d6700000aaaa00888888200b3a33b008804060711771160777776007765500a800000000d37c0094999949500000490000000000000000
+00060000094a9a00000d00000009a000088882000b33a3b0005040007111111600757500007050000020028a000d300094999949500000490000000000000000
+56666675094a9a000050d000009a0000008820000b3933b0005400000661166000d6d60077776550098080900050d00094999949511111490000000000000000
+06666670009990000500000000a000000008000000b33b000090000000066000007776007777655000a0a0000500000044444444111111140000000000000000
 44000044044444400444444044000044440000440444444044000044888888808888888008888880800000000888888080000000800000088888888008888888
 44000044444444444444444444000044440000444444444444000044800000088000000880000008888888808000000888888880800000088000000880000000
 44000044444444444444444444000044444004444444444444400044800000088000000880000008800000008000000880000000800000088000000888888800
