@@ -73,14 +73,18 @@ function init_players(i)
       dir = {-1,0},
       targetdir = {0,0},
       tempo = 1,
-      hp = 2,
+      velocity = 1,
+      hp = 10,
       str = 5,
       coin = 0,
       headbobble = 0,
       dash = {false,10},
-      ability = {o = {active = false, cooldown = 0}, x = {active = false, cooldown = 0} }
+      ability = {o = {active = false, cooldown = 0}, x = {active = false, cooldown = 0} },
+      pickup = nil
     })
   end
+  player[2].x = 64
+  player[2].y = 32
 end
 
 function init_enemies(i)
@@ -135,14 +139,17 @@ function pickup(p,i)
     gem[i.nr] = true
   end
   del(items,i)
+  p.pickup = {0,i.sprite}
 end
 
 function _update()
   frames += 1
   if frames > 32000 then frames = 0 end
+  local velocity = {player[1].velocity, player[2].velocity}
   for p in all(player) do
+    velocity[p.nr] = lerp(velocity[p.nr],p.tempo,0.1)
     p.headbobble = sin((frames/p.tempo)*0.07)
-    control(p)
+
     if collision(p,walls,p.targetdir) == false then p.dir = p.targetdir end
     if collision(p,walls) then
     collisions_pushback(p) end
@@ -150,13 +157,26 @@ function _update()
       if collision(p,{{i.x, i.y}}) then pickup(p,i) end
     end
     for c in all(chests) do
-      if collision(p,{c}) then chest2item(c) p.tempo = -2 end
+      if collision(p,{c}) then chest2item(c) velocity[p.nr] = -2 end
     end
-
+    local p2 = player[2]
+    if p.nr == player[2].nr then p2 = player[1] end
+    if collision(p,{{p2.x,p2.y}},p.dir) then
+      velocity[p.nr] -= velocity[p2.nr]
+      p.dir = {0,0}
+    end
+    if p.dash[1] == true and collision(p,{{p2.x,p2.y}},{p.dir[1]*6,p.dir[2]*6} ) then
+      velocity[p2.nr] -= velocity[p.nr]
+      p2.hp -= p.str
+      p2.hp = max(p2.hp,0)
+    end
+  end
+  player[1].velocity = velocity[1]
+  player[2].velocity = velocity[2]
+  for p in all(player) do
+    control(p)
     movement(p)
-
     camera_smoothing(p)
-    p.tempo = lerp(p.tempo,1,0.1)
   end
 
   for e in all(enemy) do
@@ -180,25 +200,25 @@ function control(p)
   if btnp(0,p.nr-1) and p.dir[1] == -1 and p.dash[1] == false and p.dash[2] <= 0 then
     p.dash[1] = true
     p.dash[2] = 10
-    p.tempo += 2
+    p.velocity += 2
   end
 
   if btnp(1,p.nr-1) and p.dir[1] == 1 and p.dash[1] == false and p.dash[2] == 0 then
     p.dash[1] = true
     p.dash[2] = 10
-    p.tempo += 2
+    p.velocity += 2
   end
 
   if btnp(2,p.nr-1) and p.dir[2] == -1 and p.dash[1] == false and p.dash[2] == 0 then
     p.dash[1] = true
     p.dash[2] = 10
-    p.tempo += 2
+    p.velocity += 2
   end
 
   if btnp(3,p.nr-1) and p.dir[2] == 1 and p.dash[1] == false and p.dash[2] == 0 then
     p.dash[1] = true
     p.dash[2] = 10
-    p.tempo += 2
+    p.velocity += 2
   end
 
   p.dash[2] -= 1
@@ -206,7 +226,7 @@ function control(p)
   if p.dash[1] == true and p.dash[2] == 0 then
     p.dash[1] = false
     p.dash[2] = 30
-    p.tempo = p.tempo/3
+    p.velocity = p.velocity/3
   end
   local cooldown = p.ability.o.cooldown
   if btnp(4,p.nr-1) then cooldown = 16
@@ -251,15 +271,15 @@ function inside(point, box)
 end
 
 function movement(p)
-  p.x = p.x + p.dir[1] * p.tempo
-  p.y = p.y + p.dir[2] * p.tempo
+  p.x = p.x + p.dir[1] * p.velocity
+  p.y = p.y + p.dir[2] * p.velocity
   add(p.history,{p.x,p.y})
   if #p.history > 10 then del(p.history,p.history[1]) end
 end
 
 function camera_smoothing(p)
-  p.cx = lerp(p.cx, p.x + p.targetdir[1] * 24, 0.05*p.tempo)
-  p.cy = lerp(p.cy, p.y + p.targetdir[2] * 24, 0.05*p.tempo)
+  p.cx = lerp(p.cx, p.x + p.targetdir[1] * 24, 0.05*p.velocity)
+  p.cy = lerp(p.cy, p.y + p.targetdir[2] * 24, 0.05*p.velocity)
 end
 
 function _draw()
@@ -275,7 +295,7 @@ function _draw()
     if p.nr == 1 then
       clip(0,0,80,64)
       local shake = {0,0}
-      if p.tempo < 0.5 then shake = {rnd(3),rnd(2)} end
+      if p.velocity < 0.1 then shake = {rnd(3),rnd(2)} end
       camera(p.cx-36+shake[1],p.cy-28+shake[2])
     elseif p.nr == 2 then
       clip(48,64,80,64)
@@ -311,13 +331,18 @@ function _draw()
 
     draw_enemies()
     draw_players()
+    if p.pickup then
+      palt(0,false)
+      palt(6,true)
+      spr(p.pickup[2], p.x,p.y-6-p.pickup[1]*1.2)
+      p.pickup[1] += 1
+      if p.pickup[1] > 7 then p.pickup = nil end
+      palt()
+    end
   end
   draw_ui()
   print(flr(stat(1)*100) .. " " .. stat(0),10,10,7)
   -- print(player[1].dash[2],10,17,8)
-  if debug ~= {} then
-    printh(debug)
-  end
   debug = {}
   -- draw_logo()
 end
