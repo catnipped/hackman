@@ -6,9 +6,12 @@ player = {}
 enemy = {}
 walls = {{0,0} , {0,8} }
 door = {}
-coins = {}
+items = {}
 chests = {}
 debug = {}
+chestpool = {}
+gem = {}
+
 
 function lerp(a,b,t)
   return a + t*(b-a)
@@ -21,12 +24,46 @@ function every(duration,offset,period)
   return offset_frames % duration < period
 end
 
+function init_gems()
+  for g = 1,4 do
+    gem[g] = false
+  end
+end
+
+function init_chests(i)
+  chestpool = {
+    { item = "gem", nr = 1, sprite = 30 },
+    { item = "gem", nr = 2, sprite = 31 },
+    { item = "gem", nr = 3, sprite = 46 },
+    { item = "gem", nr = 4, sprite = 47 }
+  }
+  for c = 1,i-4 do
+    add(chestpool,treasue_generator(1+flr(rnd(5))))
+  end
+
+end
+
+function chest2item(chest)
+  local nr = flr(rnd(#chestpool)) + 1
+  local item = chestpool[nr]
+  item.x = chest[1]
+  item.y = chest[2]
+  add(items,item)
+  del(chestpool,chestpool[nr])
+  del(chests,chest)
+end
+
+function treasue_generator(c)
+  local coins = { item = "coins", nr = c, sprite = 18 }
+  return coins
+end
 
 function init_players(i)
   for f = 1,i do
     local color = 3
     if f == 2 then color = 13 end
     add(player,{
+      history = {},
       nr = f,
       clr = color,
       x = 18,
@@ -65,7 +102,7 @@ function init_door(w,h)
   for x = 0,w-1 do
     for y = 0,h-1 do
       if mget(x,y) == 16 then
-        add(door,{x*8,y*8,true})
+        door = {x = x*8, y = y*8, open = false}
       end
     end
   end
@@ -75,17 +112,29 @@ function _init()
   init_players(2)
   init_enemies(1)
   init_map(17,17)
+  init_chests(8)
+  init_gems()
 end
 
 function init_map(w,h)
   init_door(w,h)
   for x = 0,w-1 do
     for y = 0,h-1 do
-      if mget(x,y) == 18 then add(coins,{x*8,y*8}) mset(x,y,2) end
+      if mget(x,y) == 18 then add(items ,{item = "coins",x = x*8, y = y*8, sprite = 18, nr = 1}) mset(x,y,2) end
       if mget(x,y) == 3 then add(chests,{x*8,y*8}) mset(x,y,2) end
       if fget(mget(x,y)) == 1 then add(walls,{x*8,y*8}) end
     end
   end
+end
+
+function pickup(p,i)
+  if i.item == "coins" then
+    p.coin += i.nr
+  end
+  if i.item == "gem" then
+    gem[i.nr] = true
+  end
+  del(items,i)
 end
 
 function _update()
@@ -94,10 +143,17 @@ function _update()
   for p in all(player) do
     p.headbobble = sin((frames/p.tempo)*0.07)
     control(p)
-    movement(p)
     if collision(p,walls,p.targetdir) == false then p.dir = p.targetdir end
-    -- if collision(p,walls) then p.dir = {0,0} p.tempo = 0 end
+    if collision(p,walls) then
+    collisions_pushback(p) end
+    for i in all(items) do
+      if collision(p,{{i.x, i.y}}) then pickup(p,i) end
+    end
+    for c in all(chests) do
+      if collision(p,{c}) then chest2item(c) p.tempo = -2 end
+    end
 
+    movement(p)
 
     camera_smoothing(p)
     p.tempo = lerp(p.tempo,1,0.1)
@@ -106,7 +162,14 @@ function _update()
   for e in all(enemy) do
     e.headbobble = sin((frames/e.tempo)*0.03)
   end
+  local doorgems = 0
+  for g in all(gem) do
+    if g then doorgems +=1
+    end
+  end
+  if doorgems == 4 then door.open = true end
 end
+
 
 function control(p)
   if btnp(0,p.nr-1) then p.targetdir = {-1,0} end
@@ -162,21 +225,18 @@ function collision(p,list,check)
   local points = { {x,y} , {x+7,y} , {x,y+7} , {x+7,y+7} }
 
   for i in all(points) do
-    -- add(debug,i)
     for l in all(list) do
-      if inside(i,l) then collisions_pushback(p,l) return true  end
+      if inside(i,l) then return true end
     end
   end
   return false
 end
 
-function collisions_pushback(p,wall)
-  if collision(p,{wall}) then --ÄNDRA TILL HISTORIK
-    printh(stat(0))
-    if p.dir[1] ~= 0 then p.x = p.dir[1] end
-    if p.dir[2] ~= 0 then p.y = p.dir[2] end
-  end
-  p.dir = {0,0}
+function collisions_pushback(p)
+    local i = #p.history
+    p.x = p.history[i-1][1]
+    p.y = p.history[i-1][2]
+    p.dir = {0,0}
 end
 
 
@@ -185,8 +245,6 @@ function inside(point, box)
   if point == nil then return false end
    local px = point[1]
    local py = point[2]
-  --  local points = { {box[1],box[2]} , {box[1]+7,box[2]} , {box[1],box[2]+7} , {box[1]+7,box[2]+7} }
-  --  for i in all(points) do add(debug,i) end
    return
       px >= box[1] and px < box[1] + 8 and
       py >= box[2] and py < box[2] + 8
@@ -195,6 +253,8 @@ end
 function movement(p)
   p.x = p.x + p.dir[1] * p.tempo
   p.y = p.y + p.dir[2] * p.tempo
+  add(p.history,{p.x,p.y})
+  if #p.history > 10 then del(p.history,p.history[1]) end
 end
 
 function camera_smoothing(p)
@@ -226,12 +286,13 @@ function _draw()
     -- pal(4,2)
     -- pal(9,4)
     map()
-    for c = 1,#coins do
-      local x = coins[c][1]
-      local y = coins[c][2]
+    for i = 1,#items do
+      local x = items[i].x
+      local y = items[i].y
+      local sprite = items[i].sprite
       palt(0,false)
-      palt(15,true)
-      spr(18,x,y-3-sin((frames+c)*0.02)*2)
+      palt(6,true)
+      spr(sprite,x,y-3-sin((frames+i)*0.02)*2)
       palt()
     end
     for c in all(chests) do
@@ -240,20 +301,23 @@ function _draw()
       spr(3,c[1],c[2])
       palt()
     end
-    for d in all(door) do
-      palt(0,false)
-      palt(6,true)
-      local open = 0
-      if d[3] == true then open = 1 end
-      spr(44+open,d[1],d[2],1,2)
-      palt()
-    end
+
+    palt(0,false)
+    palt(6,true)
+    local open = 0
+    if door.open == true then open = 1 end
+    spr(44+open,door.x,door.y,1,2)
+    palt()
+
     draw_enemies()
     draw_players()
   end
   draw_ui()
   print(flr(stat(1)*100) .. " " .. stat(0),10,10,7)
   -- print(player[1].dash[2],10,17,8)
+  if debug ~= {} then
+    printh(debug)
+  end
   debug = {}
   -- draw_logo()
 end
@@ -311,9 +375,6 @@ function draw_players()
     local mirror = false
     if p.dir[1] + p.dir[2] < 0 then mirror = true end
     spr(10+p.nr,p.x+p.dir[1],p.y-6+p.headbobble,1,1,mirror)
-    for l in all(debug) do
-      pset(l[1],l[2],14)
-    end
     palt()
     if p.dash[1] == false and p.dash[2] > 0 and p.dash[2] < 5 then
       circfill(p.x+4,p.y+4,p.dash[2]*2,7)
@@ -459,11 +520,13 @@ function draw_ui()
   spr(29,x+12,y)
   spr(29,x+24,y)
   spr(29,x+36,y)
+  palt(15,false)
+  palt(6,true)
+  if gem[1] then spr(30,x,y) end
+  if gem[2] then spr(31,x+12,y) end
+  if gem[3] then spr(46,x+24,y) end
+  if gem[4] then spr(47,x+36,y) end
   palt()
-  -- spr(30,x,y)
-  spr(31,x+12,y)
-  -- spr(46,x+24,y)
-  spr(47,x+36,y)
 
   -- line(4,7,7,5,7)
   -- line(48+4,64+7,48+7,64+5,7)
@@ -478,22 +541,22 @@ __gfx__
 007007000000000055550000499999947c070000000000b73f773373333333333fff7773333333337079970770799707e2fffff2eefffffe0000000000000000
 00000000099909990000555544444444700700000000000713ff773013ff773013ffff3013ff77307779977777799777eefefefeeefefefe0000000000000000
 000000000000000000005555000000007000000000000007013333000133330001333300013333003333333344444444eefffffeeefffffe0000000000000000
-9099909999909990ffffffff000000007000000000000007d6d66d6dd6d66d6d6666666600cccc0000cccc0000cccc0000cccc00fff77fff0000000000000000
-0777770044404440fff00fff000000007000000000000007ddd66dddddd66ddd6d66d66600cccc0000cccc0000cccc0000cccc00ff7017ff000ab000000e8000
-9770977000000000ff0990ff0bb00bb07c0000000000100766d66d6666d66d66df6df6660cccccc00cccccc00cccccc00cccccc0f700117f00aabb0000ee8800
-0770077044044404f0949a0fb35bb35b07000000000100706446644664466446d999f6660c7cccc00cccccc00cccc7c00cccccc0700011170aaabbb00eee8880
-9779977944044404f0949a0fbb5bbb5b0700000000100d7064444446644444469999966600222270007227000722220000722700711155570bbb333008882220
-0770077000000000f0949a0fbbbbbbbb007e00000000d700664444666644446699d99d6600200200002002000020020000200200f711557f00bb330000882200
-0777779904440444ff0990ffbb3333bb00077e0000077000664444666604226699d99d6600700200002007000070020000200700ff7157ff000b300000082000
-0000000000000000fff00fff0bbbbbb0000007777770000066044426664444669999999d00000700007000000000070000700000fff77fff0000000000000000
-7777777777777770ff777777777777777777777f0000000000060000000000000000000000000000000000000000000066666666666666660000000000000000
-7777777777000000f77000000000000000000077000000000006700000000000000000000000000000000000000000006600006666555566000a9000000fd000
-7777770000000000f700000000000000000000070d00000000067000000000000000000000000000000000000000000060aaaa066500005a00aa990000ffdd00
-77700000000000007000700000000000000000075d6666660006700000000000000000000000000000000000000000000a999990500000490aaa99900fffddd0
-77000000000000007007070000000000000000070d777770000670000000000000000000000000000000000000000000a994499950000049099944400ddd5550
-77000000000000007007000000000000000000070d000000000670000000000000000000000000000000000000000000994aa499500000490099440000dd5500
-70000000000000007007000000000000000000770000000000dddd00000000000000000000000000000000000000000094a999495000004900094000000d5000
-700000000000000070007777777777777777777f0000000000050000000000000000000000000000000000000000000094999949500000490000000000000000
+909990999990999066666666000000007000000000000007d6d66d6dd6d66d6d6666666600cccc0000cccc0000cccc0000cccc00fff77fff6666666666666666
+077777004440444066600666000000007000000000000007ddd66dddddd66ddd6d66d66600cccc0000cccc0000cccc0000cccc00ff7017ff666ab666666e8666
+9770977000000000660990660bb00bb07c0000000000100766d66d6666d66d66df6df6660cccccc00cccccc00cccccc00cccccc0f700117f66aabb6666ee8866
+077007704404440460949a06b35bb35b07000000000100706446644664466446d999f6660c7cccc00cccccc00cccc7c00cccccc0700011176aaabbb66eee8886
+977997794404440460949a06bb5bbb5b0700000000100d7064444446644444469999966600222270007227000722220000722700711155576bbb333668882226
+077007700000000060949a06bbbbbbbb007e00000000d700664444666644446699d99d6600200200002002000020020000200200f711557f66bb336666882266
+077777990444044466099066bb3333bb00077e0000077000664444666604226699d99d6600700200002007000070020000200700ff7157ff666b366666682666
+0000000000000000666006660bbbbbb0000007777770000066044426664444669999999d00000700007000000000070000700000fff77fff6666666666666666
+7777777777777770ff777777777777777777777f0000000000060000000000000000000000000000000000000000000066666666666666666666666666666666
+7777777777000000f77000000000000000000077000000000006700000000000000000000000000000000000000000006600006666555566666a9666666fd666
+7777770000000000f700000000000000000000070d00000000067000000000000000000000000000000000000000000060aaaa066500005a66aa996666ffdd66
+77700000000000007000700000000000000000075d6666660006700000000000000000000000000000000000000000000a999990500000496aaa99966fffddd6
+77000000000000007007070000000000000000070d777770000670000000000000000000000000000000000000000000a994499950000049699944466ddd5556
+77000000000000007007000000000000000000070d000000000670000000000000000000000000000000000000000000994aa499500000496699446666dd5566
+70000000000000007007000000000000000000770000000000dddd00000000000000000000000000000000000000000094a999495000004966694666666d5666
+700000000000000070007777777777777777777f0000000000050000000000000000000000000000000000000000000094999949500000496666666666666666
 05555550000000000000000000000000000000000009400000900000777777770077770000000000000a0a00000000c094999949500000490000000000000000
 00667000009990000000006000000a00000000000066550000540000711111160777776007765500090808900000037394999949500000490000000000000000
 55667555094a9a00000006700000a9000880880000b33b0008804060717117160727726007765500a82002000000c77c00999949500000490000000000000000
